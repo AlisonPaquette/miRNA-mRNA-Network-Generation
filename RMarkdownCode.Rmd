@@ -1,0 +1,121 @@
+---
+title: "Code for miRNA-mRNA Joint Analysis"
+author: "Alison Paquette"
+date: "August 31, 2016"
+output: html_document
+---
+#Part OA: Load mRNA and microRNA expression files
+```{r}
+#Load miRNA Data
+load("/Users/alisonpaquette/Documents/Sickkidsptb/MONOCYTE_INTEGRATED/Monocyte_TMMNormalizedData.RData")
+#Load mRNA Data
+load("/Users/alisonpaquette/Documents/Sickkidsptb/MONOCYTE_INTEGRATED/mRNA_M_TMMNorm.RData")
+
+#Ensure that miRNA and mRNA samples are from the same individuals and everything matches up in terms of sample ids
+TEMP<-intersect(colnames(M_MRNA),colnames(NormData))
+M_MiRNA<-NormData[,TEMP]
+M_MRNA<-M_MRNA[,TEMP]
+
+table(colnames(M_MRNA)==colnames(M_MiRNA))
+```
+
+#Part OB: Load file containing miRNA mRNA Predictions
+These files were hand curated from miRSystem and Targetscan.  For each miRNA, the database of interest was searched and ALL miRNA targets were linked.  Then I created a csv file with this data in excel.  More long term work for me involves finding a way to automate this process. (Takes ~2 minutes to do this by hand/ miRNA)
+
+```{r}
+#MirSystem
+#mRNA_miRNA<-read.csv("~/Documents/Sickkidsptb/MONOCYTE_INTEGRATED/MiRNAMRNA.csv",na.strings=c("", " "))
+#Target Scan
+mRNA_miRNA<-read.csv("~/Documents/Sickkidsptb/MONOCYTE_INTEGRATED/miRNAMRNAMonocytesTargetScan.csv",na.strings=c("", " "))
+
+#Reshuffling of data to ensure column names are microRNAs
+names<-t(mRNA_miRNA[1,])
+names<-as.character(names[,1])
+colnames(mRNA_miRNA)<-names
+mRNA_miRNA<-mRNA_miRNA[-1,]
+```
+
+
+
+#Part 1:Generate Correlations for each microRNA-mRNA target
+#Get miRNA-mRNA correlations
+#Create matrix of actual correlations (Matrix)
+
+```{r}
+#Here, I represents each miRNA, and J will be the mRNA we are comparing
+#Criterea for Signifance
+FdrPVal<-0.2
+CorrStrength<-(-0.03)
+
+Correlations <- data.frame()
+Description<-data.frame()
+for (i in 1:length(names)){
+targets<-as.character(na.omit(mRNA_miRNA[,i]))
+microRNA<-colnames(mRNA_miRNA)[i]
+#Isolate mRNA expression of interest
+mRNA.Target<-na.omit(M_MRNA[targets,])
+targets<-rownames(mRNA.Target)
+miRNA<-(M_MiRNA[microRNA,])
+
+Cor1<-as.data.frame(matrix(NA,nrow=length(targets),ncol=2))
+for (j in 1:length(targets)){
+  test<-cor.test(as.numeric(mRNA.Target[j,]),miRNA,method="pearson",paired=T,exact=F)
+   Cor1[j,2]<-(test$p.value)
+   Cor1[j,1]<-(test$estimate)
+}
+#Clean Up Correlations Table and Add Signifance
+colnames(Cor1)<-c("Corr","P.Unadjust")
+rownames(Cor1)<-targets
+Cor1$P.FDR<-p.adjust(Cor1$P.Unadjust, method = "fdr", n = length(Cor1$P.Unadjust))
+Cor1$miRNA<-rep(microRNA,times=length(rownames(Cor1)))
+
+#Filter out miRNAs you dont care about based on The criteria you set up
+Cor1<-subset(Cor1,Corr<0) #First of all, filter out all negative correlations, you dont want that in your life right now
+
+Cor2<-subset(Cor1,Corr<CorrStrength)
+Cor2<-subset(Cor2,P.FDR<FdrPVal)
+Correlations<-rbind(Correlations,Cor2)
+
+Temp<-cbind(length(targets),dim(subset(Cor1,P.Unadjust<0.05))[1],dim(Cor2)[1])
+Description<-rbind(Description,Temp)
+}
+colnames(Description)<-c("PredictedTargets","Unadjusted","Filtered")
+rownames(Description)<-names
+```
+
+
+#Part 2: Compare to Differentially Expressed mRNAs
+```{r}
+DEGS<-read.csv("~/Documents/Sickkidsptb/MONOCYTE_INTEGRATED/DE_M_MRNA_TMM.csv")
+rownames(DEGS)<-as.character(DEGS$X)
+DEG.Targets<-merge(DEGS,Correlations,by='row.names',all=F)
+
+DEG.Targets<-cbind(DEG.Targets$Row.names,(rep("FLAG",times=length(DEG.Targets$Row.names))))
+colnames(DEG.Targets)<-c("GENE","Sig")
+rownames(DEG.Targets)<-DEG.Targets[,1]
+
+
+#Write File you Need for Cytoscape
+#Edges
+CytoScapeInput<-Correlations
+CytoScapeInput$LogP<-(-(log10(CytoScapeInput$P.FDR)))
+
+#Nodes
+mRNAS<-cbind(rownames(CytoScapeInput),rep("Gene",times=length(rownames(CytoScapeInput))))
+rownames(mRNAS)<-mRNAS[,1]
+mRNAS<- merge(mRNAS,DEG.Targets,by='row.names',all=T)
+mRNAS<-mRNAS[,c(2,3,5)]
+colnames(mRNAS)<-c("Node","Type","DEG")
+
+miRNAs<-cbind(unique(Correlations$miRNA),rep("miRNA",times=length(unique(Correlations$miRNA)))
+              ,rep(NA,times=length(unique(Correlations$miRNA))))
+colnames(miRNAs)<-c("Node","Type","DEG")
+CytoScapeNodes<-rbind(mRNAS,miRNAs)
+
+write.csv(CytoScapeInput,file="CytoScapeNetworkFile.csv")
+write.csv(CytoScapeNodes,file="CytoScapeNNodeFile.csv")
+
+#DEG Correlation Table
+write.csv(merge(Correlations,DEGS,by='row.names',all=F),file="DescriptiveOutput.csv")
+```
+
