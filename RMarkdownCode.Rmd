@@ -70,7 +70,7 @@ Cor1$P.FDR<-p.adjust(Cor1$P.Unadjust, method = "fdr", n = length(Cor1$P.Unadjust
 Cor1$miRNA<-rep(microRNA,times=length(rownames(Cor1)))
 
 #Filter out miRNAs you dont care about based on The criteria you set up
-Cor1<-subset(Cor1,Corr<0) #First of all, filter out all negative correlations, you dont want that in your life right now
+Cor1<-subset(Cor1,Corr<0) #First of all, filter out all positive correlations, you dont want that in your life right now
 
 Cor2<-subset(Cor1,Corr<CorrStrength)
 Cor2<-subset(Cor2,P.FDR<FdrPVal)
