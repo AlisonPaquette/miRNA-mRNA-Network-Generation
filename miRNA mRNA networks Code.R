@@ -14,7 +14,7 @@ load("/Users/alisonpaquette/Documents/Sickkidsptb/MONOCYTE_INTEGRATED/Monocyte_T
 M_miRNA<-NormData
 #miRNA Genes of Interest
 DE_miRNAS1<-read.csv("~/Documents/Sickkidsptb/M_Integrated/DE_mIRNAs.csv")
-DE_miRNAS<-as.character(DE_miRNAS[,1]) #Vector of N miRNAs significantly assocatied with Phenotype
+DE_miRNAS<-as.character(DE_miRNAS1[,1]) #Vector of N miRNAs significantly assocatied with Phenotype
 
 #mRNA Matrix
 load("/Users/alisonpaquette/Documents/Sickkidsptb/MONOCYTE_INTEGRATED/mRNA_M_TMMNorm.RData")
