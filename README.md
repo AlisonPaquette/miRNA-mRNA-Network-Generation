@@ -2,6 +2,8 @@
 
 The **goal** of the code reflected here was to confirm miRNA-mRNA networks predicted by targetscan and relate them to phenotypes of interest.  These networks can be visualized within **cytoscape**. (Shannon et al, Genome Research, 2003)
 
+![picture](miRNANetworks.png)
+
 **Input Required:**
   *1.* High throughput RNA sequencing results: mRNA
   *2.* High throughput small RNA sequencing results (single end)
